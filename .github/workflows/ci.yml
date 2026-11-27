@@ -66,25 +66,3 @@ jobs:
       - name: Stop the stack
         if: always()
         run: docker compose down -v
-
-  publish:
-    # CD: after a merge to main, push the images to GitHub Container Registry
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: integration
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Log in to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-      - name: Build and push the MLflow image
-        run: |
-          IMAGE=$(echo "ghcr.io/${{ github.repository }}/mlflow" | tr '[:upper:]' '[:lower:]')
-          docker build -f docker/mlflow.Dockerfile -t $IMAGE:latest -t $IMAGE:${{ github.sha }} .
-          docker push $IMAGE:latest
-          docker push $IMAGE:${{ github.sha }}
-      # The API image gets pushed here too once src/churn/api.py exists
