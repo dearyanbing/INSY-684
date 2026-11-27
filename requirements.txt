@@ -3,3 +3,4 @@ numpy>=1.26
 scikit-learn>=1.4
 mlflow>=3.0
 pytest>=8.0
+prometheus-client>=0.20
