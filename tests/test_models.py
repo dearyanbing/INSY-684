@@ -42,3 +42,19 @@ def test_cv_pr_auc_runs_on_training_data(raw_df):
     mean, std = cv_pr_auc(pipe, X_train, y_train, folds=3)
     assert 0 <= mean <= 1
     assert std >= 0
+
+def test_evaluate_includes_score_equal_to_threshold():
+    from unittest.mock import Mock
+
+    model = Mock()
+    model.predict_proba.return_value = np.array([
+        [0.56, 0.44],
+        [0.55, 0.45],
+        [0.54, 0.46],
+    ])
+    actual_churn = [0, 1, 1]
+
+    metrics = evaluate(model, X=[0, 1, 2], y=actual_churn, threshold=0.45)
+
+    assert metrics["recall"] == 1.0
+    assert metrics["precision"] == 1.0
