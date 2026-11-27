@@ -7,6 +7,9 @@ mlruns/
 mlartifacts/
 mlflow.db
 
+# generated drift reports
+reports/
+
 # python
 __pycache__/
 *.py[cod]
