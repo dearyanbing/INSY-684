@@ -1,0 +1,9 @@
+FROM python:3.11-slim
+WORKDIR /app
+COPY simulator/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY simulator/ simulator/
+COPY data/Telco-Customer-Churn.csv data/
+ENV API_URL=http://api:8000
+ENTRYPOINT ["python", "simulator/simulate.py"]
+CMD ["--n", "400", "--drift", "price_hike", "--drift-after", "200"]
