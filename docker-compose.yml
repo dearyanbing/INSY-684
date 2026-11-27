@@ -1,8 +1,8 @@
-# Local stack. Skeleton for now: MLflow server + prediction API.
-# Monitoring services (PostgreSQL, Evidently, Prometheus, Grafana), the frontend and
-# the traffic simulator get added here as their branches land.
+# Local stack: MLflow server, PostgreSQL (prediction log) and the prediction API.
+# Evidently, Prometheus, Grafana, the frontend and the traffic simulator get added
+# here as their branches land.
 #
-#   docker compose up -d --build --wait        start MLflow (http://localhost:5001)
+#   docker compose up -d --build --wait        start MLflow (http://localhost:5001) + PostgreSQL (localhost:5433)
 #   docker compose --profile api up -d --build start MLflow + API (http://localhost:8000/docs)
 #   docker compose logs -f                     follow logs
 #   docker compose down                        stop (add -v to also delete MLflow data)
@@ -35,6 +35,25 @@ services:
       retries: 20
       start_period: 10s
 
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: churn
+      POSTGRES_PASSWORD: churn  # local development only
+      POSTGRES_DB: churn
+    ports:
+      - "5433:5432"  # 5433 so it doesn't clash with a PostgreSQL already on your laptop
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Runs once, when the volume is empty: creates the predictions table.
+      # After changing schema.sql, reset with `docker compose down -v`.
+      - ./monitoring/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U churn -d churn"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   api:
     # Behind a profile until src/churn/api.py exists; remove `profiles` once it lands.
     profiles: ["api"]
@@ -45,11 +64,15 @@ services:
     environment:
       MLFLOW_TRACKING_URI: http://mlflow:5000
       MODEL_URI: models:/telco-churn-classifier@champion
+      DATABASE_URL: postgresql://churn:churn@postgres:5432/churn
     ports:
       - "8000:8000"
     depends_on:
       mlflow:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
 
 volumes:
   mlflow-data:
+  postgres-data:
