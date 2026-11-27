@@ -42,3 +42,84 @@ def test_cv_pr_auc_runs_on_training_data(raw_df):
     mean, std = cv_pr_auc(pipe, X_train, y_train, folds=3)
     assert 0 <= mean <= 1
     assert std >= 0
+
+def test_evaluate_includes_score_equal_to_threshold():
+    from unittest.mock import Mock
+
+    model = Mock()
+    model.predict_proba.return_value = np.array([
+        [0.56, 0.44],
+        [0.55, 0.45],
+        [0.54, 0.46],
+    ])
+    actual_churn = [0, 1, 1]
+
+    metrics = evaluate(model, X=[0, 1, 2], y=actual_churn, threshold=0.45)
+
+    assert metrics["recall"] == 1.0
+    assert metrics["precision"] == 1.0
+
+def test_evaluate_no_positive_predictions():
+    from unittest.mock import Mock
+
+    model = Mock()
+    model.predict_proba.return_value = np.array([
+        [0.90, 0.10],
+        [0.80, 0.20],
+        [0.70, 0.30],
+    ])
+
+    metrics = evaluate(
+        model,
+        X=[0, 1, 2],
+        y=[0, 1, 1],
+        threshold=0.45
+    )
+
+    assert metrics["precision"] == 0.0
+    assert metrics["recall"] == 0.0
+    assert metrics["f1"] == 0.0
+
+from sklearn.metrics import (
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+)
+
+
+def monitor_performance(predictions):
+    # Keep only customers with known outcomes
+    labeled = predictions.dropna(
+        subset=["actual_churn"]
+    )
+
+    if labeled.empty:
+        return {
+            "status": "waiting_for_labels",
+            "sample_size": 0,
+        }
+
+    # Evaluate one model version at a time
+    if labeled["model_version"].nunique() != 1:
+        raise ValueError(
+            "Evaluate one model version at a time"
+        )
+
+    y_true = labeled["actual_churn"].astype(int)
+    y_pred = labeled["send_offer"].astype(int)
+
+    return {
+        "status": "ok",
+        "sample_size": len(labeled),
+        "accuracy": accuracy_score(y_true, y_pred),
+        "precision": precision_score(
+            y_true, y_pred, zero_division=0
+        ),
+        "recall": recall_score(
+            y_true, y_pred, zero_division=0
+        ),
+        "f1": f1_score(
+            y_true, y_pred, zero_division=0
+        ),
+    }

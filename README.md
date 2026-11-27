@@ -20,7 +20,7 @@ flowchart LR
     subgraph Serving
         C -->|champion model| D[Prediction API]
         E[Frontend] --> D
-        F[Traffic simulator<br/>drift injection] --> D
+        F["Traffic simulator"] -->|"Normal and drifted traffic"| D
     end
 
     subgraph Monitoring
