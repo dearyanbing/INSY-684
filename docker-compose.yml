@@ -1,0 +1,55 @@
+# Local stack. Skeleton for now: MLflow server + prediction API.
+# Monitoring services (PostgreSQL, Evidently, Prometheus, Grafana), the frontend and
+# the traffic simulator get added here as their branches land.
+#
+#   docker compose up -d --build --wait        start MLflow (http://localhost:5001)
+#   docker compose --profile api up -d --build start MLflow + API (http://localhost:8000/docs)
+#   docker compose logs -f                     follow logs
+#   docker compose down                        stop (add -v to also delete MLflow data)
+#
+# Train against the MLflow server from your laptop:
+#   MLFLOW_TRACKING_URI=http://localhost:5001 python -m churn.train
+#
+# Host port 5001 for MLflow because macOS AirPlay Receiver already uses 5000.
+
+services:
+  mlflow:
+    build:
+      context: .
+      dockerfile: docker/mlflow.Dockerfile
+    image: telco-churn-mlflow:latest
+    command: >
+      mlflow server
+      --host 0.0.0.0 --port 5000
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --artifacts-destination /mlflow/artifacts
+      --allowed-hosts localhost,localhost:*,127.0.0.1,127.0.0.1:*,mlflow,mlflow:*
+    ports:
+      - "5001:5000"
+    volumes:
+      - mlflow-data:/mlflow
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  api:
+    # Behind a profile until src/churn/api.py exists; remove `profiles` once it lands.
+    profiles: ["api"]
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    image: telco-churn-api:latest
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MODEL_URI: models:/telco-churn-classifier@champion
+    ports:
+      - "8000:8000"
+    depends_on:
+      mlflow:
+        condition: service_healthy
+
+volumes:
+  mlflow-data:

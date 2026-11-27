@@ -1,4 +1,5 @@
 """Project-wide settings: paths, column lists and MLflow names."""
+import os
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -42,6 +43,9 @@ CV_FOLDS = 5
 # (threshold chosen by minimizing cost on out-of-fold scores)
 DECISION_THRESHOLD = 0.45
 
-MLFLOW_TRACKING_URI = f"sqlite:///{PROJECT_ROOT / 'mlflow.db'}"
+# Local SQLite file by default; docker compose sets MLFLOW_TRACKING_URI to the MLflow server
+MLFLOW_TRACKING_URI = os.getenv(
+    "MLFLOW_TRACKING_URI", f"sqlite:///{PROJECT_ROOT / 'mlflow.db'}"
+)
 MLFLOW_EXPERIMENT = "telco-churn"
 REGISTERED_MODEL_NAME = "telco-churn-classifier"
