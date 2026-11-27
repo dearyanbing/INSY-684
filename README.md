@@ -48,6 +48,36 @@ flowchart TD
     C -->|minimize cost on out-of-fold scores| D[Send an offer if score >= 0.45]
     D --> F[Evaluate on 1,409 customers]
 ```
+## Model Evaluation and Performance Monitoring
+
+```mermaid
+flowchart TD
+    A[Trained Model] --> B[Predicted Probability]
+    B --> C[Decision Threshold = 0.45]
+
+    subgraph Evaluation Testing
+        C --> D[Boundary Testing: 0.44, 0.45, 0.46]
+        C --> E[Edge Case: No Positive Predictions]
+        D --> F[Validate Evaluation Logic]
+        E --> F
+    end
+
+    F --> G[Deployment]
+    G --> H[(Prediction Logs)]
+
+    subgraph Performance Monitoring
+        H -.-> I[Filter Labeled Predictions]
+        I --> J[Check Model Version]
+        J --> K[Compare Predictions with Actual Churn]
+        K --> L[Accuracy, Precision, Recall, F1]
+    end
+
+    L -.-> M[Support Retraining Decisions]
+
+    style D fill:#dcfce7,color:#166534
+    style E fill:#dcfce7,color:#166534
+    style L fill:#dcfce7,color:#166534
+```
 
 ## Repository layout
 
