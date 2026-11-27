@@ -25,3 +25,66 @@ jobs:
 
       - name: Run unit tests
         run: pytest -v
+
+  integration:
+    # On pull requests and on main (not on every feature-branch push, it takes a few minutes)
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Start the stack (docker compose)
+        run: docker compose up -d --build --wait
+
+      - name: Check the predictions table was created in PostgreSQL
+        run: docker compose exec -T postgres psql -U churn -d churn -c "\d predictions"
+
+      - name: Download data
+        run: python scripts/download_data.py
+
+      - name: Integration test (training -> MLflow server -> registry)
+        env:
+          MLFLOW_URL: http://localhost:5001
+        run: pytest -m integration -v
+
+      - name: Show container logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop the stack
+        if: always()
+        run: docker compose down -v
+
+  publish:
+    # CD: after a merge to main, push the images to GitHub Container Registry
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: integration
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build and push the MLflow image
+        run: |
+          IMAGE=$(echo "ghcr.io/${{ github.repository }}/mlflow" | tr '[:upper:]' '[:lower:]')
+          docker build -f docker/mlflow.Dockerfile -t $IMAGE:latest -t $IMAGE:${{ github.sha }} .
+          docker push $IMAGE:latest
+          docker push $IMAGE:${{ github.sha }}
+      # The API image gets pushed here too once src/churn/api.py exists

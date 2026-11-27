@@ -58,7 +58,7 @@ def main() -> None:
             signature = infer_signature(X_train, pipeline.predict_proba(X_train)[:, 1])
             model_info = mlflow.sklearn.log_model(
                 pipeline,
-                name="model",
+                name="model", serialization_format="cloudpickle",
                 signature=signature,
                 input_example=X_train.head(5),
             )
